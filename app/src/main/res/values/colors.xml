@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand colors -->
+    <color name="primary">#1E88E5</color>
+    <color name="primary_variant">#1565C0</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="secondary">#26A69A</color>
+    <color name="secondary_variant">#00897B</color>
+    <color name="on_secondary">#FFFFFF</color>
+
+    <!-- Semantic Financial Colors -->
+    <color name="asset_green">#2E7D32</color>
+    <color name="asset_green_light">#E8F5E9</color>
+    <color name="liability_red">#D32F2F</color>
+    <color name="liability_red_light">#FFEBEE</color>
+    <color name="transfer_blue">#0288D1</color>
+    <color name="transfer_blue_light">#E1F5FE</color>
+    <color name="fee_orange">#E65100</color>
+
+    <!-- Neutrals -->
+    <color name="background">#F5F7FA</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_variant">#F0F2F5</color>
+    <color name="text_primary">#1A1C1E</color>
+    <color name="text_secondary">#5F6368</color>
+    <color name="text_hint">#9AA0A6</color>
+    <color name="divider">#E0E0E0</color>
+</resources>

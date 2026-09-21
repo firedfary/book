@@ -1,0 +1,40 @@
+<resources>
+    <string name="app_name">多账户资金流转记账</string>
+    <string name="nav_dashboard">资产看板</string>
+    <string name="nav_transactions">流转流水</string>
+    <string name="nav_accounts">账户管理</string>
+
+    <string name="total_assets">总资产 (存款)</string>
+    <string name="total_liabilities">总负债 (欠款)</string>
+    <string name="net_worth">净资产</string>
+
+    <string name="asset_accounts">存款资产账户</string>
+    <string name="liability_accounts">负债账户 (信用卡/花呗)</string>
+    <string name="expense_nodes">支出分类节点</string>
+    <string name="income_nodes">收入分类节点</string>
+
+    <string name="btn_add_transaction">记一笔</string>
+    <string name="btn_save">保存</string>
+    <string name="btn_cancel">取消</string>
+
+    <!-- 记账模态 -->
+    <string name="tab_expense">消费支出</string>
+    <string name="tab_income">收入入账</string>
+    <string name="tab_transfer">资金流动 / 还款</string>
+
+    <string name="label_from_account">转出 / 扣款账户</string>
+    <string name="label_to_account">转入 / 到账账户</string>
+    <string name="label_category">分类节点</string>
+    <string name="label_amount">金额 (¥)</string>
+    <string name="label_title">交易说明</string>
+    <string name="label_memo">备注 (可选)</string>
+    <string name="label_has_fee">产生提现/转账手续费</string>
+    <string name="label_fee_amount">手续费金额 (¥)</string>
+    <string name="label_is_repayment">属于信用卡/花呗还款</string>
+
+    <string name="available_limit">剩余额度</string>
+    <string name="credit_limit">信用额度</string>
+    <string name="current_debt">当前欠款</string>
+    <string name="bill_day">账单日: %1$d日</string>
+    <string name="repay_day">还款日: %1$d日</string>
+</resources>

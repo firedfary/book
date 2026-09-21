@@ -1,0 +1,14 @@
+{
+    "java.jdt.ls.java.home": "C:\\Program Files\\Java\\jdk-17",
+    "gradle.java.home": "C:\\Program Files\\Java\\jdk-17",
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "**/.gradle": false,
+        "**/build": false
+    }
+}

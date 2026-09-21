@@ -1,0 +1,30 @@
+# Built application files
+*.apk
+*.ap_
+*.aab
+*.dex
+
+# Build folders and artifacts
+build/
+app/build/
+**/build/
+
+# Gradle cache and temporary files
+.gradle/
+.gradletasknamecache
+
+# Local SDK & Toolchains (keep repo lightweight)
+local.properties
+android-sdk/
+gradle-8.7/
+downloads/
+*.log
+
+# IDE files
+.idea/
+*.iml
+.vscode/.history/
+
+# OS generated files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#1E88E5"
+        android:pathData="M0,0h108v108h-108z" />
+    <!-- 两个互锁的流转箭头，象征复式记账资金流动 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,44h22v-8l12,12l-12,12v-8h-22z" />
+    <path
+        android:fillColor="#81D4FA"
+        android:pathData="M70,64h-22v8l-12,-12l12,-12v8h22z" />
+</vector>
