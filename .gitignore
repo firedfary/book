@@ -1,30 +1,89 @@
-# Built application files
+# =========================================================================
+# FlowLedger - Git Ignore Configuration (Public GitHub Repository Ready)
+# =========================================================================
+
+# --------------------------------------------------
+# 1. 签名密钥与敏感凭据 (High Security Risk - 严防公网泄露)
+# --------------------------------------------------
+*.jks
+*.keystore
+*.p12
+*.key
+*.pem
+google-services.json
+secrets.properties
+local.properties
+
+# --------------------------------------------------
+# 2. 编译产物与安装包 (Built Artifacts)
+# --------------------------------------------------
 *.apk
 *.ap_
 *.aab
 *.dex
+*.class
 
-# Build folders and artifacts
+# --------------------------------------------------
+# 3. 构建中间目录与编译器缓存 (Build Folders & Caches)
+# --------------------------------------------------
 build/
 app/build/
 **/build/
-
-# Gradle cache and temporary files
 .gradle/
 .gradletasknamecache
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+lint/
+reports/
 
-# Local SDK & Toolchains (keep repo lightweight)
-local.properties
-android-sdk/
-gradle-8.7/
-downloads/
+# 性能/内存分析 Dump 与运行时日志
+*.hprof
 *.log
 
-# IDE files
+# --------------------------------------------------
+# 4. 本地专属工具链与下载缓存 (Local SDK & Toolchains)
+# --------------------------------------------------
+android-sdk/
+gradle-*/
+downloads/
+
+# --------------------------------------------------
+# 5. IDE 与编辑器配置文件 (IDE & Editors)
+# --------------------------------------------------
+# Android Studio / IntelliJ IDEA
 .idea/
 *.iml
+*.ipr
+*.iws
+out/
+
+# VS Code (保留团队项目级推荐配置，忽略本地临时与历史状态)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
 .vscode/.history/
 
-# OS generated files
+# --------------------------------------------------
+# 6. 操作系统生成文件 (OS Generated Files)
+# --------------------------------------------------
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+Desktop.ini
+[Dd]esktop.ini
+
+# --------------------------------------------------
+# 7. 临时与备份文件 (Temporary & Backup Files)
+# --------------------------------------------------
+*~
+*.swp
+*.swo
+*.bak
+*.tmp
