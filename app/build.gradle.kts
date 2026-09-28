@@ -63,6 +63,9 @@ dependencies {
     // Kotlin Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
 
+    // JSON Serialization for Ledger Export & Import
+    implementation("com.google.code.gson:gson:2.10.1")
+
     // Unit Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

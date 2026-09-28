@@ -1,6 +1,7 @@
 package com.flowledger.app.data.model
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.util.UUID
 
@@ -43,10 +44,14 @@ enum class AccountCategory {
     OTHER
 }
 
-@Entity(tableName = "accounts")
+@Entity(
+    tableName = "accounts",
+    indices = [Index("bookId")]
+)
 data class AccountEntity(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
+    val bookId: String = "default_book_id",
     val name: String,
     val type: AccountType,
     val category: AccountCategory,
@@ -58,9 +63,12 @@ data class AccountEntity(
     val colorHex: String = "#1976D2",   // 颜色标记
     val iconName: String = "ic_account",
     val isArchived: Boolean = false,
+    val isDeleted: Boolean = false,     // 软删除标记
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
-    val syncVersion: Long = 1L
+    val syncVersion: Long = 1L,
+    val syncId: String? = null,
+    val syncStatus: Int = 0
 )
 
 data class AccountWithBalance(

@@ -2,6 +2,7 @@ package com.flowledger.app.data.model
 
 import androidx.room.Embedded
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
 import java.util.UUID
@@ -14,17 +15,24 @@ enum class TransactionType {
     ADJUST      // 余额校准
 }
 
-@Entity(tableName = "transactions")
+@Entity(
+    tableName = "transactions",
+    indices = [Index("bookId")]
+)
 data class TransactionEntity(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
+    val bookId: String = "default_book_id",
     val title: String,
     val occurredAt: Long = System.currentTimeMillis(),
     val type: TransactionType,
     val memo: String = "",
+    val isDeleted: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
-    val syncVersion: Long = 1L
+    val syncVersion: Long = 1L,
+    val syncId: String? = null,
+    val syncStatus: Int = 0
 )
 
 data class TransactionWithPostings(

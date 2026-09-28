@@ -37,4 +37,22 @@
     <string name="current_debt">当前欠款</string>
     <string name="bill_day">账单日: %1$d日</string>
     <string name="repay_day">还款日: %1$d日</string>
+
+    <!-- 账本与账户管理 -->
+    <string name="ledger_manager_title">账本管理</string>
+    <string name="btn_create_book">新建账本</string>
+    <string name="btn_import_book">导入账本</string>
+    <string name="btn_export_book">导出账本</string>
+    <string name="btn_delete_book">删除账本</string>
+    <string name="current_active_book">当前正在使用</string>
+    <string name="btn_switch_to_this_book">切换使用</string>
+    <string name="add_account_title">添加自定义账户</string>
+    <string name="account_name_label">账户名称</string>
+    <string name="account_name_hint">例如: 私房钱、工商银行、零钱袋</string>
+    <string name="account_type_label">账户类型</string>
+    <string name="initial_balance_label">期初余额 (¥)</string>
+    <string name="btn_add_account">+ 添加账户</string>
+    <string name="delete_account_title">删除账户</string>
+    <string name="archive_account">归档停用 (推荐)</string>
+    <string name="cascade_delete_account">彻底删除 (含历史流水)</string>
 </resources>

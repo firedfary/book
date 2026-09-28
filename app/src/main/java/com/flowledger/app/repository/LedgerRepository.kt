@@ -1,30 +1,86 @@
 package com.flowledger.app.repository
 
+import android.content.Context
+import android.content.SharedPreferences
+import com.flowledger.app.data.AppDatabase
 import com.flowledger.app.data.dao.AccountDao
+import com.flowledger.app.data.dao.BookDao
 import com.flowledger.app.data.dao.PostingDao
 import com.flowledger.app.data.dao.TransactionDao
+import com.flowledger.app.data.model.AccountCategory
 import com.flowledger.app.data.model.AccountEntity
 import com.flowledger.app.data.model.AccountType
 import com.flowledger.app.data.model.AccountWithBalance
+import com.flowledger.app.data.model.BookEntity
+import com.flowledger.app.data.model.BookWithStats
 import com.flowledger.app.data.model.PostingEntity
 import com.flowledger.app.data.model.TransactionDisplayItem
 import com.flowledger.app.data.model.TransactionEntity
 import com.flowledger.app.data.model.TransactionType
+import com.flowledger.app.utils.AccountNameUtils
+import com.flowledger.app.utils.LedgerExportImportHelper
+import com.flowledger.app.utils.TransactionWithPostingsExportItem
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class LedgerRepository(
+    private val context: Context,
+    private val bookDao: BookDao,
     private val accountDao: AccountDao,
     private val transactionDao: TransactionDao,
     private val postingDao: PostingDao
 ) {
+    private val prefs: SharedPreferences by lazy {
+        context.getSharedPreferences("flow_ledger_prefs", Context.MODE_PRIVATE)
+    }
 
-    // 1. 账户流与余额聚合
+    private val _currentBookId = MutableStateFlow(
+        prefs.getString("current_book_id", AppDatabase.DEFAULT_BOOK_ID) ?: AppDatabase.DEFAULT_BOOK_ID
+    )
+    val currentBookId = _currentBookId.asStateFlow()
+
+    fun switchBook(bookId: String) {
+        _currentBookId.value = bookId
+        prefs.edit().putString("current_book_id", bookId).apply()
+    }
+
+    // 1. 账本列表与当前激活账本
+    val allBooks: Flow<List<BookEntity>> = bookDao.getAllBooksFlow()
+
+    val allBooksWithStats: Flow<List<BookWithStats>> =
+        combine(bookDao.getAllBooksFlow(), _currentBookId) { books, currentId ->
+            books.map { book ->
+                val accCount = accountDao.getAccountCountByBook(book.id)
+                val txCount = transactionDao.getTransactionCountByBook(book.id)
+                BookWithStats(
+                    book = book,
+                    accountCount = accCount,
+                    transactionCount = txCount,
+                    isCurrent = (book.id == currentId)
+                )
+            }
+        }
+
+    val activeBook: Flow<BookEntity?> = _currentBookId.flatMapLatest { bookId ->
+        flow {
+            emit(bookDao.getBookById(bookId))
+        }
+    }
+
+    // 2. 账户流与余额聚合 (自动响应当前账本切换)
     val allAccountsWithBalances: Flow<List<AccountWithBalance>> =
-        accountDao.getAccountsWithBalancesFlow().map { rows ->
-            rows.map { AccountWithBalance(it.account, it.currentBalance) }
+        _currentBookId.flatMapLatest { bookId ->
+            accountDao.getAccountsWithBalancesByBookFlow(bookId).map { rows ->
+                rows.map { AccountWithBalance(it.account, it.currentBalance) }
+            }
         }
 
     val assetAccounts: Flow<List<AccountWithBalance>> =
@@ -38,10 +94,14 @@ class LedgerRepository(
         }
 
     val expenseAccounts: Flow<List<AccountEntity>> =
-        accountDao.getAccountsByTypeFlow(AccountType.EXPENSE)
+        _currentBookId.flatMapLatest { bookId ->
+            accountDao.getAccountsByTypeAndBookFlow(bookId, AccountType.EXPENSE)
+        }
 
     val incomeAccounts: Flow<List<AccountEntity>> =
-        accountDao.getAccountsByTypeFlow(AccountType.INCOME)
+        _currentBookId.flatMapLatest { bookId ->
+            accountDao.getAccountsByTypeAndBookFlow(bookId, AccountType.INCOME)
+        }
 
     // 财务大盘指标
     data class FinancialSummary(
@@ -62,7 +122,6 @@ class LedgerRepository(
                         }
                     }
                     AccountType.LIABILITY -> {
-                        // 负债账户如果余额小于0，表示当前欠款（如信用卡刷卡后余额为负）
                         if (item.currentBalance < 0) {
                             totalLiab += -item.currentBalance
                         }
@@ -77,91 +136,312 @@ class LedgerRepository(
             )
         }
 
-    // 2. 交易流水列表 (转换为展示项)
+    // 3. 交易流水列表 (当前账本关联)
     val transactionsFlow: Flow<List<TransactionDisplayItem>> =
-        combine(
-            transactionDao.getAllTransactionsWithPostings(),
-            accountDao.getAllAccountsFlow()
-        ) { txList, accounts ->
-            val accountMap = accounts.associateBy { it.id }
-            txList.map { item ->
-                val tx = item.transaction
-                val postings = item.postings
+        _currentBookId.flatMapLatest { bookId ->
+            combine(
+                transactionDao.getAllTransactionsWithPostingsByBook(bookId),
+                accountDao.getAccountsByBookFlow(bookId)
+            ) { txList, accounts ->
+                val accountMap = accounts.associateBy { it.id }
+                txList.map { item ->
+                    val tx = item.transaction
+                    val postings = item.postings
 
-                // 分析分录流向：负数表示流出方，正数表示流入方
-                val outflows = postings.filter { it.amount < 0 }
-                val inflows = postings.filter { it.amount > 0 }
+                    val outflows = postings.filter { it.amount < 0 }
+                    val inflows = postings.filter { it.amount > 0 }
 
-                var fromName = "未知账户"
-                var toName = "未知账户"
-                var displayAmount = 0.0
-                var feeName: String? = null
-                var feeAmount: Double? = null
+                    var fromName = "未知账户"
+                    var toName = "未知账户"
+                    var displayAmount: Double
+                    var feeName: String? = null
+                    var feeAmount: Double? = null
 
-                when (tx.type) {
-                    TransactionType.EXPENSE -> {
-                        // 出账方通常是资产或负债节点，入账方是支出分类节点
-                        val from = outflows.firstOrNull()
-                        val to = inflows.firstOrNull()
-                        fromName = from?.let { accountMap[it.accountId]?.name } ?: "账户"
-                        toName = to?.let { accountMap[it.accountId]?.name } ?: tx.title
-                        displayAmount = to?.amount ?: (outflows.firstOrNull()?.let { -it.amount } ?: 0.0)
-                    }
-                    TransactionType.INCOME -> {
-                        // 出账方通常是收入分类节点，入账方是资产节点
-                        val from = outflows.firstOrNull()
-                        val to = inflows.firstOrNull()
-                        fromName = from?.let { accountMap[it.accountId]?.name } ?: tx.title
-                        toName = to?.let { accountMap[it.accountId]?.name } ?: "账户"
-                        displayAmount = to?.amount ?: 0.0
-                    }
-                    TransactionType.TRANSFER, TransactionType.REPAYMENT -> {
-                        val toPosting = inflows.firstOrNull {
-                            val acc = accountMap[it.accountId]
-                            acc?.type != AccountType.EXPENSE // 排除手续费
+                    when (tx.type) {
+                        TransactionType.EXPENSE -> {
+                            val from = outflows.firstOrNull()
+                            val to = inflows.firstOrNull()
+                            fromName = from?.let { accountMap[it.accountId]?.name } ?: "账户"
+                            toName = to?.let { accountMap[it.accountId]?.name } ?: tx.title
+                            displayAmount = to?.amount ?: (outflows.firstOrNull()?.let { -it.amount } ?: 0.0)
                         }
-                        val feePosting = inflows.firstOrNull {
-                            val acc = accountMap[it.accountId]
-                            acc?.type == AccountType.EXPENSE
+                        TransactionType.INCOME -> {
+                            val from = outflows.firstOrNull()
+                            val to = inflows.firstOrNull()
+                            fromName = from?.let { accountMap[it.accountId]?.name } ?: tx.title
+                            toName = to?.let { accountMap[it.accountId]?.name } ?: "账户"
+                            displayAmount = to?.amount ?: 0.0
                         }
+                        TransactionType.TRANSFER, TransactionType.REPAYMENT -> {
+                            val toPosting = inflows.firstOrNull {
+                                val acc = accountMap[it.accountId]
+                                acc?.type != AccountType.EXPENSE
+                            }
+                            val feePosting = inflows.firstOrNull {
+                                val acc = accountMap[it.accountId]
+                                acc?.type == AccountType.EXPENSE
+                            }
 
-                        val fromPosting = outflows.firstOrNull()
+                            val fromPosting = outflows.firstOrNull()
 
-                        fromName = fromPosting?.let { accountMap[it.accountId]?.name } ?: "源账户"
-                        toName = toPosting?.let { accountMap[it.accountId]?.name } ?: "目标账户"
-                        displayAmount = toPosting?.amount ?: (outflows.firstOrNull()?.let { -it.amount } ?: 0.0)
+                            fromName = fromPosting?.let { accountMap[it.accountId]?.name } ?: "源账户"
+                            toName = toPosting?.let { accountMap[it.accountId]?.name } ?: "目标账户"
+                            displayAmount = toPosting?.amount ?: (outflows.firstOrNull()?.let { -it.amount } ?: 0.0)
 
-                        if (feePosting != null && feePosting.amount > 0) {
-                            feeName = accountMap[feePosting.accountId]?.name ?: "手续费"
-                            feeAmount = feePosting.amount
+                            if (feePosting != null && feePosting.amount > 0) {
+                                feeName = accountMap[feePosting.accountId]?.name ?: "手续费"
+                                feeAmount = feePosting.amount
+                            }
+                        }
+                        else -> {
+                            displayAmount = inflows.sumOf { it.amount }
                         }
                     }
-                    else -> {
-                        displayAmount = inflows.sumOf { it.amount }
-                    }
+
+                    TransactionDisplayItem(
+                        transactionId = tx.id,
+                        title = tx.title,
+                        occurredAt = tx.occurredAt,
+                        type = tx.type,
+                        amount = displayAmount,
+                        fromAccountName = fromName,
+                        toAccountName = toName,
+                        feeAccountName = feeName,
+                        feeAmount = feeAmount,
+                        memo = tx.memo
+                    )
                 }
-
-                TransactionDisplayItem(
-                    transactionId = tx.id,
-                    title = tx.title,
-                    occurredAt = tx.occurredAt,
-                    type = tx.type,
-                    amount = displayAmount,
-                    fromAccountName = fromName,
-                    toAccountName = toName,
-                    feeAccountName = feeName,
-                    feeAmount = feeAmount,
-                    memo = tx.memo
-                )
             }
         }
 
-    // 3. 核心记账操作 (原子事务与数学守恒校验)
+    // 4. 账本管理 (添加、删除、导出、导入)
 
     /**
-     * 记录普通消费支出
-     * 守恒: -amount (资金账户) + amount (支出分类账户) = 0
+     * 创建新账本，并初始化该账本的标准收支分类节点
      */
+    suspend fun createBook(
+        name: String,
+        description: String = "",
+        currency: String = "CNY",
+        colorHex: String = "#1976D2"
+    ): BookEntity {
+        require(name.isNotBlank()) { "账本名称不能为空" }
+        val bookId = UUID.randomUUID().toString()
+        val newBook = BookEntity(
+            id = bookId,
+            name = name.trim(),
+            description = description.trim(),
+            currency = currency,
+            colorHex = colorHex,
+            isDefault = false
+        )
+        bookDao.insertBook(newBook)
+
+        // 为新账本预置标准收支分类节点，确保复式记账守恒即时可用
+        val standardNodes = listOf(
+            AccountEntity(
+                bookId = bookId,
+                name = "餐饮美食",
+                type = AccountType.EXPENSE,
+                category = AccountCategory.DINING,
+                colorHex = "#FF7043",
+                iconName = "ic_dining"
+            ),
+            AccountEntity(
+                bookId = bookId,
+                name = "交通出行",
+                type = AccountType.EXPENSE,
+                category = AccountCategory.TRANSPORT,
+                colorHex = "#26A69A",
+                iconName = "ic_transport"
+            ),
+            AccountEntity(
+                bookId = bookId,
+                name = "日常购物",
+                type = AccountType.EXPENSE,
+                category = AccountCategory.SHOPPING,
+                colorHex = "#AB47BC",
+                iconName = "ic_shopping"
+            ),
+            AccountEntity(
+                bookId = bookId,
+                name = "住房物业",
+                type = AccountType.EXPENSE,
+                category = AccountCategory.HOUSING,
+                colorHex = "#78909C",
+                iconName = "ic_housing"
+            ),
+            AccountEntity(
+                bookId = bookId,
+                name = "提现与转账手续费",
+                type = AccountType.EXPENSE,
+                category = AccountCategory.FEE,
+                colorHex = "#8D6E63",
+                iconName = "ic_fee"
+            ),
+            AccountEntity(
+                bookId = bookId,
+                name = "休闲娱乐",
+                type = AccountType.EXPENSE,
+                category = AccountCategory.ENTERTAINMENT,
+                colorHex = "#FFA726",
+                iconName = "ic_entertainment"
+            ),
+            AccountEntity(
+                bookId = bookId,
+                name = "工资薪金",
+                type = AccountType.INCOME,
+                category = AccountCategory.SALARY,
+                colorHex = "#43A047",
+                iconName = "ic_salary"
+            ),
+            AccountEntity(
+                bookId = bookId,
+                name = "理财收益",
+                type = AccountType.INCOME,
+                category = AccountCategory.FINANCE_INCOME,
+                colorHex = "#3949AB",
+                iconName = "ic_finance"
+            )
+        )
+        accountDao.insertAccounts(standardNodes)
+        return newBook
+    }
+
+    /**
+     * 删除账本（至少保留一个账本）
+     */
+    suspend fun deleteBook(bookId: String): Result<Unit> {
+        val totalActive = bookDao.getActiveBookCount()
+        if (totalActive <= 1) {
+            return Result.failure(IllegalStateException("无法删除：系统中至少需要保留一个账本"))
+        }
+
+        // 清理关联账户与交易
+        accountDao.deleteAccountsByBook(bookId)
+        transactionDao.deleteTransactionsByBook(bookId)
+        bookDao.deleteBookById(bookId)
+
+        // 若当前选中的正是被删除的账本，自动回退到剩余账本中的第一个
+        if (_currentBookId.value == bookId) {
+            val remainingBooks = bookDao.getAllBooks()
+            val fallback = remainingBooks.firstOrNull() ?: BookEntity(
+                id = AppDatabase.DEFAULT_BOOK_ID,
+                name = "默认账本"
+            )
+            switchBook(fallback.id)
+        }
+        return Result.success(Unit)
+    }
+
+    /**
+     * 导出指定账本为 JSON 文本
+     */
+    suspend fun exportBookToJson(bookId: String): Result<String> {
+        val book = bookDao.getBookById(bookId)
+            ?: return Result.failure(IllegalArgumentException("指定的账本不存在"))
+        val accounts = accountDao.getAccountsByBook(bookId)
+        val txWithPostings = transactionDao.getAllTransactionsWithPostingsByBookSync(bookId)
+
+        val exportItems = txWithPostings.map {
+            TransactionWithPostingsExportItem(
+                transaction = it.transaction,
+                postings = it.postings
+            )
+        }
+        val json = LedgerExportImportHelper.exportToJson(book, accounts, exportItems)
+        return Result.success(json)
+    }
+
+    /**
+     * 从 JSON 文本导入账本
+     */
+    suspend fun importBookFromJson(jsonContent: String): Result<BookEntity> {
+        val parsed = LedgerExportImportHelper.parseAndRemapImport(jsonContent)
+        if (parsed.isFailure) {
+            return Result.failure(parsed.exceptionOrNull()!!)
+        }
+
+        val imported = parsed.getOrThrow()
+        bookDao.insertBook(imported.book)
+        accountDao.insertAccounts(imported.accounts)
+        transactionDao.insertTransactions(imported.transactions)
+        postingDao.insertPostings(imported.postings)
+
+        // 自动切换至导入的新账本
+        switchBook(imported.book.id)
+        return Result.success(imported.book)
+    }
+
+    // 5. 自定义账户管理与同名智能自动编号
+
+    /**
+     * 添加自定义账户（支持同名自动追加递增数字）
+     */
+    suspend fun addCustomAccount(
+        name: String,
+        type: AccountType,
+        category: AccountCategory,
+        currency: String = "CNY",
+        initialBalance: Double = 0.0,
+        creditLimit: Double = 0.0,
+        billingDay: Int? = null,
+        repaymentDay: Int? = null,
+        colorHex: String = "#1976D2",
+        iconName: String = "ic_account"
+    ): AccountEntity {
+        val targetBookId = _currentBookId.value
+
+        // 读取当前账本中已存在的所有账户名称
+        val existingNames = accountDao.getAllAccountNamesInBook(targetBookId)
+
+        // 调用命名解析器生成唯一不重名的新账户名
+        val uniqueName = AccountNameUtils.generateUniqueAccountName(name, existingNames)
+
+        val account = AccountEntity(
+            bookId = targetBookId,
+            name = uniqueName,
+            type = type,
+            category = category,
+            currency = currency,
+            initialBalance = initialBalance,
+            creditLimit = if (type == AccountType.LIABILITY) creditLimit else 0.0,
+            billingDay = if (type == AccountType.LIABILITY) billingDay else null,
+            repaymentDay = if (type == AccountType.LIABILITY) repaymentDay else null,
+            colorHex = colorHex,
+            iconName = iconName
+        )
+        accountDao.insertAccount(account)
+        return account
+    }
+
+    suspend fun getAccountTransactionCount(accountId: String): Int {
+        return transactionDao.getTransactionCountForAccount(accountId)
+    }
+
+    /**
+     * 删除账户
+     * @param cascadeTransactions 是否级联删除包含该账户的所有交易流水
+     */
+    suspend fun deleteAccount(accountId: String, cascadeTransactions: Boolean): Result<Unit> {
+        val txCount = transactionDao.getTransactionCountForAccount(accountId)
+        if (txCount > 0 && !cascadeTransactions) {
+            return Result.failure(IllegalStateException("该账户包含 $txCount 笔交易流水，需确认级联删除或选择归档"))
+        }
+
+        if (txCount > 0) {
+            transactionDao.cascadeDeleteAccountTransactions(accountId)
+        }
+        accountDao.deleteAccountById(accountId)
+        return Result.success(Unit)
+    }
+
+    suspend fun archiveAccount(accountId: String) {
+        accountDao.archiveAccount(accountId)
+    }
+
+    // 6. 记账操作 (自动关联当前 activeBookId 并确保守恒)
+
     suspend fun recordExpense(
         fromAccountId: String,
         expenseCategoryAccountId: String,
@@ -174,6 +454,7 @@ class LedgerRepository(
         val txId = UUID.randomUUID().toString()
         val tx = TransactionEntity(
             id = txId,
+            bookId = _currentBookId.value,
             title = title.ifBlank { "日常消费" },
             occurredAt = occurredAt,
             type = TransactionType.EXPENSE,
@@ -197,10 +478,6 @@ class LedgerRepository(
         transactionDao.insertFullTransaction(tx, postings)
     }
 
-    /**
-     * 记录收入
-     * 守恒: -amount (收入分类账户) + amount (资金账户) = 0
-     */
     suspend fun recordIncome(
         toAccountId: String,
         incomeCategoryAccountId: String,
@@ -213,6 +490,7 @@ class LedgerRepository(
         val txId = UUID.randomUUID().toString()
         val tx = TransactionEntity(
             id = txId,
+            bookId = _currentBookId.value,
             title = title.ifBlank { "收入入账" },
             occurredAt = occurredAt,
             type = TransactionType.INCOME,
@@ -236,11 +514,6 @@ class LedgerRepository(
         transactionDao.insertFullTransaction(tx, postings)
     }
 
-    /**
-     * 记录资金流动 (转账/划转/信用卡还款，支持手续费)
-     * 无手续费守恒: -amount + amount = 0
-     * 含手续费守恒: -(amount + fee) + amount + fee = 0
-     */
     suspend fun recordTransfer(
         fromAccountId: String,
         toAccountId: String,
@@ -259,6 +532,7 @@ class LedgerRepository(
         val defaultTitle = if (isRepayment) "信用卡还款" else "账户转账"
         val tx = TransactionEntity(
             id = txId,
+            bookId = _currentBookId.value,
             title = title.ifBlank { defaultTitle },
             occurredAt = occurredAt,
             type = if (isRepayment) TransactionType.REPAYMENT else TransactionType.TRANSFER,
@@ -268,7 +542,6 @@ class LedgerRepository(
         val postings = mutableListOf<PostingEntity>()
         val totalOutflow = amount + feeAmount
 
-        // 1. 转出账户扣除总额（本金 + 手续费）
         postings.add(
             PostingEntity(
                 transactionId = txId,
@@ -278,7 +551,6 @@ class LedgerRepository(
             )
         )
 
-        // 2. 转入账户到账金额（本金）
         postings.add(
             PostingEntity(
                 transactionId = txId,
@@ -288,7 +560,6 @@ class LedgerRepository(
             )
         )
 
-        // 3. 手续费分录（若有）
         if (feeAmount > 0 && !feeAccountId.isNullOrBlank()) {
             postings.add(
                 PostingEntity(
@@ -304,25 +575,12 @@ class LedgerRepository(
         transactionDao.insertFullTransaction(tx, postings)
     }
 
-    suspend fun addAccount(account: AccountEntity) {
-        accountDao.insertAccount(account)
-    }
-
-    suspend fun updateAccount(account: AccountEntity) {
-        accountDao.updateAccount(account)
-    }
-
-    suspend fun deleteAccount(account: AccountEntity) {
-        accountDao.deleteAccount(account)
-    }
-
     suspend fun deleteTransaction(transactionId: String) {
         transactionDao.deleteTransaction(transactionId)
     }
 
     private fun verifyBalance(postings: List<PostingEntity>) {
         val sum = postings.sumOf { it.amount }
-        // 允许浮点数微小舍入误差
         if (kotlin.math.abs(sum) > 0.0001) {
             throw IllegalStateException("复式分录资金不守恒！总和为: $sum")
         }

@@ -12,6 +12,37 @@
         android:orientation="vertical"
         android:padding="16dp">
 
+        <!-- 顶部账本选择器与标题栏 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/app_name"
+                android:textColor="@color/text_primary"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <!-- 当前账本切换 Chip -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCurrentBook"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📖 默认账本 ▾"
+                android:textSize="13sp"
+                android:textColor="@color/primary"
+                app:cornerRadius="20dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp" />
+        </LinearLayout>
+
         <!-- 财务总览看板卡片 -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
@@ -111,16 +142,33 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 存款与资产类账户 -->
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- 存款与资产类账户栏与添加按钮 -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
             android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
-            android:text="@string/asset_accounts"
-            android:textColor="@color/text_primary"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/asset_accounts"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAddAssetAccount"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="@string/btn_add_account"
+                android:textColor="@color/primary"
+                android:textSize="13sp" />
+        </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvAssetAccounts"
@@ -128,16 +176,33 @@
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false" />
 
-        <!-- 负债类账户 (信用卡/花呗) -->
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- 负债类账户栏与添加按钮 -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
             android:layout_marginTop="16dp"
-            android:layout_marginBottom="8dp"
-            android:text="@string/liability_accounts"
-            android:textColor="@color/text_primary"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/liability_accounts"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAddLiabilityAccount"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="@string/btn_add_account"
+                android:textColor="@color/primary"
+                android:textSize="13sp" />
+        </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvLiabilityAccounts"
