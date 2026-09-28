@@ -8,7 +8,7 @@
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/surface"
+        android:background="@color/topbar_bg"
         app:elevation="1dp">
 
         <com.google.android.material.appbar.MaterialToolbar
@@ -16,6 +16,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:title="@string/app_name"
+            app:titleTextColor="@color/text_primary"
             app:titleTextAppearance="@style/TextAppearance.Material3.TitleMedium" />
 
     </com.google.android.material.appbar.AppBarLayout>

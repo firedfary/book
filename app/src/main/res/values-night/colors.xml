@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand colors (Adjusted luminance for dark backgrounds) -->
+    <color name="primary">#64B5F6</color>
+    <color name="primary_variant">#1E88E5</color>
+    <color name="on_primary">#0D47A1</color>
+    <color name="secondary">#80CBC4</color>
+    <color name="secondary_variant">#26A69A</color>
+    <color name="on_secondary">#004D40</color>
+
+    <!-- Semantic Financial Colors (Vibrant & high-contrast in dark mode) -->
+    <color name="asset_green">#81C784</color>
+    <color name="asset_green_light">#1B3B22</color>
+    <color name="liability_red">#E57373</color>
+    <color name="liability_red_light">#3E1F22</color>
+    <color name="transfer_blue">#4FC3F7</color>
+    <color name="transfer_blue_light">#152B3C</color>
+    <color name="fee_orange">#FFB74D</color>
+
+    <!-- Neutrals (Dark Mode: Deep clean surfaces with high-legibility text) -->
+    <color name="background">#121316</color>
+    <color name="surface">#1E2024</color>
+    <color name="surface_variant">#292C32</color>
+    <color name="card_background">#1E2024</color>
+    <color name="card_dashboard_bg">#182635</color>
+    <color name="text_primary">#F1F3F5</color>
+    <color name="text_secondary">#A0A5AC</color>
+    <color name="text_hint">#6C727A</color>
+    <color name="divider">#33363D</color>
+    <color name="topbar_bg">#1E2024</color>
+</resources>

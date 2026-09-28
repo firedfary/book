@@ -51,22 +51,23 @@ class TransactionListAdapter(
             }
 
             // 金额与色彩
+            val context = binding.root.context
             when (item.type) {
                 TransactionType.EXPENSE -> {
                     binding.tvTxAmount.text = String.format(Locale.getDefault(), "- ¥%.2f", item.amount)
-                    binding.tvTxAmount.setTextColor(Color.parseColor("#D32F2F"))
+                    binding.tvTxAmount.setTextColor(androidx.core.content.ContextCompat.getColor(context, com.flowledger.app.R.color.liability_red))
                 }
                 TransactionType.INCOME -> {
                     binding.tvTxAmount.text = String.format(Locale.getDefault(), "+ ¥%.2f", item.amount)
-                    binding.tvTxAmount.setTextColor(Color.parseColor("#2E7D32"))
+                    binding.tvTxAmount.setTextColor(androidx.core.content.ContextCompat.getColor(context, com.flowledger.app.R.color.asset_green))
                 }
                 TransactionType.TRANSFER, TransactionType.REPAYMENT -> {
                     binding.tvTxAmount.text = String.format(Locale.getDefault(), "¥%.2f", item.amount)
-                    binding.tvTxAmount.setTextColor(Color.parseColor("#0288D1"))
+                    binding.tvTxAmount.setTextColor(androidx.core.content.ContextCompat.getColor(context, com.flowledger.app.R.color.transfer_blue))
                 }
                 else -> {
                     binding.tvTxAmount.text = String.format(Locale.getDefault(), "¥%.2f", item.amount)
-                    binding.tvTxAmount.setTextColor(Color.parseColor("#1A1C1E"))
+                    binding.tvTxAmount.setTextColor(androidx.core.content.ContextCompat.getColor(context, com.flowledger.app.R.color.text_primary))
                 }
             }
 

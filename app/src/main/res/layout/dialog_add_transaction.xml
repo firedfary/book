@@ -3,8 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/ic_transfer"
-    android:backgroundTint="@color/surface"
+    android:background="@color/surface"
     android:padding="20dp">
 
     <LinearLayout
@@ -18,7 +17,7 @@
             android:layout_height="4dp"
             android:layout_gravity="center_horizontal"
             android:layout_marginBottom="16dp"
-            android:background="#CCCCCC" />
+            android:background="@color/divider" />
 
         <!-- 交易类型切换 Tab -->
         <com.google.android.material.tabs.TabLayout
@@ -26,9 +25,11 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
+            android:background="@color/surface"
             app:tabIndicatorColor="@color/primary"
             app:tabMode="fixed"
-            app:tabSelectedTextColor="@color/primary">
+            app:tabSelectedTextColor="@color/primary"
+            app:tabTextColor="@color/text_secondary">
 
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
@@ -59,6 +60,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="numberDecimal"
+                android:textColor="@color/text_primary"
                 android:textSize="22sp"
                 android:textStyle="bold" />
         </com.google.android.material.textfield.TextInputLayout>
@@ -75,6 +77,7 @@
                 android:id="@+id/etTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
                 android:inputType="text" />
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -125,6 +128,7 @@
                 android:id="@+id/switchIsRepayment"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
                 android:text="@string/label_is_repayment" />
 
             <!-- 是否产生手续费 -->
@@ -132,6 +136,7 @@
                 android:id="@+id/switchHasFee"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
                 android:text="@string/label_has_fee" />
 
             <!-- 手续费金额输入框 -->
@@ -149,6 +154,7 @@
                     android:id="@+id/etFeeAmount"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:textColor="@color/text_primary"
                     android:inputType="numberDecimal" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
@@ -165,6 +171,7 @@
                 android:id="@+id/etMemo"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
                 android:inputType="text" />
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -174,7 +181,9 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:text="@string/btn_save"
+            android:textColor="@color/on_primary"
             android:textSize="16sp"
+            app:backgroundTint="@color/primary"
             app:cornerRadius="10dp" />
 
     </LinearLayout>

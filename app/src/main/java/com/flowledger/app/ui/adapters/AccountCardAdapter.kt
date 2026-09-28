@@ -44,7 +44,9 @@ class AccountCardAdapter(
                 // 负债账户：展示欠款与剩余可用额度
                 val debt = item.debtAmount
                 binding.tvAccountBalance.text = String.format(Locale.getDefault(), "欠款: ¥%.2f", debt)
-                binding.tvAccountBalance.setTextColor(Color.parseColor("#D32F2F"))
+                binding.tvAccountBalance.setTextColor(
+                    androidx.core.content.ContextCompat.getColor(binding.root.context, com.flowledger.app.R.color.liability_red)
+                )
 
                 binding.layoutLiabilityExtra.visibility = View.VISIBLE
                 binding.tvCreditLimit.text = String.format(
@@ -69,7 +71,9 @@ class AccountCardAdapter(
                     "¥ %.2f",
                     item.currentBalance
                 )
-                binding.tvAccountBalance.setTextColor(Color.parseColor("#1A1C1E"))
+                binding.tvAccountBalance.setTextColor(
+                    androidx.core.content.ContextCompat.getColor(binding.root.context, com.flowledger.app.R.color.text_primary)
+                )
                 binding.layoutLiabilityExtra.visibility = View.GONE
             }
 
