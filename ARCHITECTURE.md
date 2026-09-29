@@ -303,3 +303,47 @@ stateDiagram-v2
   - 财务强调色：收入/资产绿色 `#388E3C` / `#4CAF50`，支出/负债红色 `#D32F2F` / `#EF5350`，调拨蓝色 `#1976D2` / `#42A5F5`。
 * **组件化交互架构**：
   所有表单交互均通过 Material 3 `BottomSheetDialogFragment` 承载，提供流畅的底部滑出体验，支持软键盘自适应平移（`SOFT_INPUT_ADJUST_RESIZE`）。
+
+---
+
+## 八、 智能截图识图导入系统架构 (Intelligent Bill OCR Architecture)
+
+为了支持从主流银行与支付工具截图中批量导入历史明细，系统设计了端侧优先、插件化可插拔、结合复式平账校验的智能识别子系统：
+
+```mermaid
+flowchart TD
+    Raw["原生截图 (如 1264x42455 超长图)"] --> Slicer["ImageSlicingEngine\n(BitmapRegionDecoder 带 150px 重叠带滑动切片)"]
+    Slicer --> PluginManager["OcrPluginManager\n(插件管理器)"]
+    PluginManager -->|本地离线| MlKit["MlKitOcrPlugin (端侧极速)"]
+    PluginManager -->|云端备选| Cloud["CloudVisionPlugin (自配Key)"]
+    
+    MlKit --> Pipeline["BillParserPipeline\n(渠道自动特征嗅探与分发)"]
+    Cloud --> Pipeline
+    
+    Pipeline -->|工行特征| Icbc["IcbcBillAdapter\n(三列排版+月度横栏+余额连续性强对账)"]
+    Pipeline -->|通用特征| Generic["GenericBillAdapter\n(金额与时间锚点启发式聚类)"]
+    
+    Icbc --> Infer["CategoryInferenceEngine\n(离线关键词智能分类推荐与账户映射)"]
+    Generic --> Infer
+    
+    Infer --> UI["BillImportPreviewBottomSheet\n(转账温和提醒 / 预览微调 / 余额校准提示)"]
+    UI -->|用户确认导入| Repo["LedgerRepository.importBillCandidates\n(装配借贷平衡分录 & 原子事务入库)"]
+```
+
+1. **超长图切片防 OOM (`ImageSlicingEngine`)**：
+   - 针对长达数万像素的拼接截图，采用 `BitmapRegionDecoder` 按 2800px 滑动窗口与 150px 重叠带进行切片，局部解码为 RGB_565，将内存峰值控制在 25MB 以内；
+   - 记录全局 Y 轴偏移量，重构全图文本绝对空间拓扑。
+2. **插件化双模引擎 (`OcrPluginManager`)**：
+   - 契约接口 `IOcrEnginePlugin`：解耦具体推理实现；
+   - 默认搭载 Google ML Kit 离线中文模型，100% 本地运算，零网络依赖与极致隐私安全；
+   - 预留云端视觉大模型 API 接口，方便无 GMS 或追求云端体验的用户。
+3. **渠道专有适配器与连续性余额对账 (`IcbcBillAdapter`)**：
+   - 月度通栏状态机自动捕获跨年跨月上下文，支持同日多笔交易日期继承；
+   - 运用银行每笔流水的运行余额建立强对账校验：
+     $$\text{Balance}_{t-1} + \Delta\text{Amount}_t = \text{Balance}_t$$
+   - 自动化检测错字漏字，提供银行级信任度。
+4. **两步式目标账户绑定与复式入库**：
+   - 交互前置选择目标账户（或新建账户），杜绝卡号识别歧义；
+   - 疑似转账（汇款、兑回、提现）温和打标提醒，支持一键指定对端账户；
+   - 严格满足复式记账守恒公理：$\sum \text{Posting}_i.\text{amount} = 0$，通过 Room 事务批处理原子提交。
+

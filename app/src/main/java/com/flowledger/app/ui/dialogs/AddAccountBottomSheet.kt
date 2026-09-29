@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.fragment.app.activityViewModels
 import com.flowledger.app.FlowLedgerApplication
 import com.flowledger.app.data.model.AccountCategory
+import com.flowledger.app.data.model.AccountEntity
 import com.flowledger.app.data.model.AccountType
 import com.flowledger.app.databinding.BottomSheetAddAccountBinding
 import com.flowledger.app.ui.viewmodel.MainViewModel
@@ -15,7 +16,9 @@ import com.flowledger.app.ui.viewmodel.MainViewModelFactory
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.tabs.TabLayout
 
-class AddAccountBottomSheet : BottomSheetDialogFragment() {
+class AddAccountBottomSheet(
+    private val onAccountCreated: ((AccountEntity) -> Unit)? = null
+) : BottomSheetDialogFragment() {
 
     private var _binding: BottomSheetAddAccountBinding? = null
     private val binding get() = _binding!!
@@ -116,6 +119,7 @@ class AddAccountBottomSheet : BottomSheetDialogFragment() {
             colorHex = colorHex,
             onSuccess = { createdAccount ->
                 Toast.makeText(requireContext(), "成功添加账户【${createdAccount.name}】", Toast.LENGTH_SHORT).show()
+                onAccountCreated?.invoke(createdAccount)
                 dismiss()
             },
             onError = { err ->

@@ -8,6 +8,7 @@ import com.flowledger.app.data.model.AccountCategory
 import com.flowledger.app.data.model.AccountEntity
 import com.flowledger.app.data.model.AccountType
 import com.flowledger.app.data.model.BookEntity
+import com.flowledger.app.data.model.ImportedBillCandidate
 import com.flowledger.app.repository.LedgerRepository
 import kotlinx.coroutines.launch
 
@@ -225,6 +226,49 @@ class MainViewModel(private val repository: LedgerRepository) : ViewModel() {
     fun deleteTransaction(txId: String) {
         viewModelScope.launch {
             repository.deleteTransaction(txId)
+        }
+    }
+
+    fun checkDuplicates(
+        targetAccountId: String,
+        candidates: List<ImportedBillCandidate>,
+        onResult: (List<ImportedBillCandidate>) -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = repository.checkDuplicates(targetAccountId, candidates)
+            onResult(result)
+        }
+    }
+
+    fun importBillCandidates(
+        targetAccountId: String,
+        candidates: List<ImportedBillCandidate>,
+        onSuccess: (Int) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = repository.importBillCandidates(targetAccountId, candidates)
+            if (result.isSuccess) {
+                onSuccess(result.getOrThrow())
+            } else {
+                onError(result.exceptionOrNull()?.message ?: "导入失败")
+            }
+        }
+    }
+
+    fun adjustAccountBalance(
+        targetAccountId: String,
+        targetBalance: Double,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = repository.adjustAccountBalance(targetAccountId, targetBalance)
+            if (result.isSuccess) {
+                onSuccess()
+            } else {
+                onError(result.exceptionOrNull()?.message ?: "校准余额失败")
+            }
         }
     }
 }

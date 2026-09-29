@@ -60,6 +60,31 @@ interface TransactionDao {
     }
 
     @Transaction
+    suspend fun insertFullTransactionsBatch(
+        transactions: List<TransactionEntity>,
+        postings: List<PostingEntity>
+    ) {
+        insertTransactions(transactions)
+        insertPostings(postings)
+    }
+
+    @Transaction
+    @Query("""
+        SELECT t.* FROM transactions t
+        INNER JOIN postings p ON t.id = p.transactionId
+        WHERE t.bookId = :bookId 
+          AND t.isDeleted = 0 
+          AND p.accountId = :accountId
+          AND t.occurredAt BETWEEN :startTime AND :endTime
+    """)
+    suspend fun getTransactionsForAccountInTimeRange(
+        bookId: String,
+        accountId: String,
+        startTime: Long,
+        endTime: Long
+    ): List<TransactionEntity>
+
+    @Transaction
     suspend fun cascadeDeleteAccountTransactions(accountId: String) {
         val txIds = getTransactionIdsForAccount(accountId)
         for (txId in txIds) {

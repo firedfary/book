@@ -37,6 +37,12 @@ interface AccountDao {
     @Query("SELECT * FROM accounts WHERE id = :id LIMIT 1")
     suspend fun getAccountById(id: String): AccountEntity?
 
+    @Query("""
+        SELECT (a.initialBalance + IFNULL((SELECT SUM(p.amount) FROM postings p WHERE p.accountId = a.id), 0.0))
+        FROM accounts a WHERE a.id = :accountId
+    """)
+    suspend fun getAccountBalance(accountId: String): Double?
+
     @Query("SELECT * FROM accounts WHERE isArchived = 0 AND isDeleted = 0 ORDER BY type ASC, name ASC")
     fun getAllAccountsFlow(): Flow<List<AccountEntity>>
 

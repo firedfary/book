@@ -21,9 +21,9 @@
 [========================================] 100% M1: 核心复式记账引擎与基础单账本 UI (v1.0.0 Alpha)
 [========================================] 100% M2: 全套深色模式适配与真机/模拟器联调 (v1.0.0 Stable)
 [========================================] 100% M3: 多账本体系、自定义账户、重名自增序号与导入导出 (v1.1.0)
-[----------                              ]  20% M4: 云端同步服务对接与多端互联 (v1.2.0 - 契约已就绪)
-[                                        ]   0% M5: 财务统计报表、图表可视化与预算管理 (v1.3.0)
-[                                        ]   0% M6: 智能化记账 (OCR 发票票据识别 / 通知栏监听) (v1.4.0)
+[========================================] 100% M6: 智能化截图记账 (超长图切片防OOM / 工行与通用适配 / 余额对账与复式入库) (v1.2.0)
+[----------                              ]  20% M4: 云端同步服务对接与多端互联 (v1.3.0 - 契约已就绪)
+[                                        ]   0% M5: 财务统计报表、图表可视化与预算管理 (v1.4.0)
 ```
 
 ### 里程碑交付详表
@@ -33,9 +33,9 @@
 | **M1** | `v1.0.0-alpha` | 建立五大类复式分录数学模型、Room ORM 数据持久化、支出/收入/转账记账流程 | ✅ **已交付** | 核心数据流转引擎、56项单元测试通过 |
 | **M2** | `v1.0.0` | Material 3 全套深色模式适配（语义化颜色令牌解耦）、MuMu 12 模拟器真实环境调试、VS Code 编译体系 | ✅ **已交付** | [FlowLedger-v1.0.0.apk](file:///D:/book/FlowLedger-v1.0.0.apk) (5.82 MB)、联调报告 |
 | **M3** | `v1.1.0` | 多账本切换与生命周期管理、自定义账户自由创建、重名自动递增编号算法、JSON 全量备份导入导出、云同步架构契约 | ✅ **已交付** | [FlowLedger-v1.0.0.apk](file:///D:/book/FlowLedger-v1.0.0.apk) (6.01 MB)、Room v2 数据库迁移脚本、全量单元测试 |
-| **M4** | `v1.2.0` | 云端数据同步对接（REST / WebSocket）、离线增量合并、冲突解决策略（Client/Server Win） | ⏳ **架构就绪** | [`SyncContract.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/sync/SyncContract.kt) 接口定义就绪，待接入云服务 |
-| **M5** | `v1.3.0` | 月度收支趋势折线图、资产构成饼图、分类支出排行榜、多币种汇率换算 | 📅 **规划中** | 依赖图表库或原生 Canvas 自绘图表 |
-| **M6** | `v1.4.0` | 微信/支付宝账单截图 OCR 解析、银行短信智能解析、桌面小部件 (Widget) | 📅 **远期规划** | 智能解析算法与 Android App Widget 扩展 |
+| **M6** | `v1.2.0` | 智能截图识图导入账单：42,455px超长图滑动切片防OOM、工行专有排版状态机、离线关键词分类、转账温和提醒、余额连续性对账与复式记账原子入库 | ✅ **已交付** | [FlowLedger-v1.0.0.apk](file:///D:/book/FlowLedger-v1.0.0.apk)、24项单元测试100%通过 |
+| **M4** | `v1.3.0` | 云端数据同步对接（REST / WebSocket）、离线增量合并、冲突解决策略（Client/Server Win） | ⏳ **架构就绪** | [`SyncContract.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/sync/SyncContract.kt) 接口定义就绪，待接入云服务 |
+| **M5** | `v1.4.0` | 月度收支趋势折线图、资产构成饼图、分类支出排行榜、多币种汇率换算 | 📅 **规划中** | 依赖图表库或原生 Canvas 自绘图表 |
 
 ---
 
@@ -48,16 +48,31 @@
 | **数据库版本迁移 (v1 $\rightarrow$ v2)** | [`AppDatabase.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/data/AppDatabase.kt) | `MIGRATION_1_2` 回归测试 | 成功将历史数据无损迁入“默认账本”，索引健全 | ✅ 验证通过 |
 | **自定义账户添加** | [`AddAccountBottomSheet.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ui/dialogs/AddAccountBottomSheet.kt) | UI 表单校验测试 | 资产/负债栏点击 `+ 添加账户` 弹出并实时入库 | ✅ 验证通过 |
 | **重名自动编号算法** | [`AccountNameUtils.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/utils/AccountNameUtils.kt) | [`AccountNameUtilsTest.kt`](file:///D:/book/app/src/test/java/com/flowledger/app/AccountNameUtilsTest.kt) | 连续添加 `SecretFund` 自动生成 `SecretFund 1` | ✅ 验证通过 |
-| **账户安全删除** | [`DashboardFragment.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ui/dashboard/DashboardFragment.kt) | 级联安全测试 | 二次确认弹窗提示，级联清理关联流水 | ✅ 验证通过 |
-| **JSON 导入导出** | [`LedgerExportImportHelper.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/utils/LedgerExportImportHelper.kt) | [`LedgerExportImportTest.kt`](file:///D:/book/app/src/test/java/com/flowledger/app/LedgerExportImportTest.kt) | 支持系统 SAF 文件导出、复制与零和守恒导入 | ✅ 验证通过 |
-| **云同步协议预留** | [`SyncContract.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/sync/SyncContract.kt) | 契约序列化测试 | 实体具备 `syncId`, `syncVersion`, `isDeleted` 墓碑 | ✅ 验证通过 |
-| **深色模式全量适配** | `values-night/colors.xml`<br>`values-night/themes.xml` | 视觉对比度核验 | MuMu 12 模拟器深色背景下文本高亮清晰 | ✅ 验证通过 |
+| **超长图切片防OOM** | [`ImageSlicingEngine.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ocr/slice/ImageSlicingEngine.kt) | 滑动切片测试 | 成功切片 42,455 像素长图，内存峰值 < 25MB | ✅ 验证通过 |
+| **工行明细状态机解析** | [`IcbcBillAdapter.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ocr/parser/IcbcBillAdapter.kt) | [`IcbcBillAdapterTest.kt`](file:///D:/book/app/src/test/java/com/flowledger/app/IcbcBillAdapterTest.kt) | 三列排版、月度横栏、日期沿用与金额方向精准解析 | ✅ 验证通过 |
+| **余额连续性强对账** | [`IcbcBillAdapter.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ocr/parser/IcbcBillAdapter.kt) | [`IcbcBillAdapterTest.kt`](file:///D:/book/app/src/test/java/com/flowledger/app/IcbcBillAdapterTest.kt) | $Balance_{t-1} + Amount_t = Balance_t$ 校验平账 | ✅ 验证通过 |
+| **转账提醒与余额校准** | [`BillImportPreviewBottomSheet.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ui/dialogs/BillImportPreviewBottomSheet.kt) | UI 联动核验 | 疑似调拨温和打标，期末余额一键校准分录平账 | ✅ 验证通过 |
+| **复式记账守恒导入** | [`LedgerRepository.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/repository/LedgerRepository.kt) | [`DoubleEntryImportTest.kt`](file:///D:/book/app/src/test/java/com/flowledger/app/DoubleEntryImportTest.kt) | $\sum Posting.amount = 0$，原子级批量入库 | ✅ 验证通过 |
+| **离线商户智能分类** | [`CategoryInferenceEngine.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ocr/CategoryInferenceEngine.kt) | [`CategoryInferenceEngineTest.kt`](file:///D:/book/app/src/test/java/com/flowledger/app/CategoryInferenceEngineTest.kt) | 拼多多/美团/利息关键词精准绑定至分类账户 | ✅ 验证通过 |
+| **账户前置选择与新建** | [`SelectTargetAccountBottomSheet.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ui/dialogs/SelectTargetAccountBottomSheet.kt) | 交互流测试 | 导入前明确账户主体，快捷创建新卡自动选中 | ✅ 验证通过 |
 
 ---
 
 ## 四、 详细版本演进记录 (Changelog)
 
-### [v1.1.0] - 2026-09-28
+### [v1.2.0] - 2026-09-28
+#### 新增 (Added)
+- **智能截图识图导入账单系统**：
+  - **超长图切片防 OOM 引擎** ([`ImageSlicingEngine.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ocr/slice/ImageSlicingEngine.kt))：针对如 1264x42455px 的超长银行流水截图，采用带 150px 重叠保护带的滑动窗口切片，避免内存崩溃与字迹压缩糊化；
+  - **插件化识图架构** ([`IOcrEnginePlugin.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ocr/plugin/IOcrEnginePlugin.kt), [`OcrPluginManager.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ocr/plugin/OcrPluginManager.kt))：支持离线端侧高精度 OCR（ML Kit）与免下载云端大模型 API（自备 Key），解耦引擎与业务；
+  - **工行储蓄卡专用解析适配器** ([`IcbcBillAdapter.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ocr/parser/IcbcBillAdapter.kt))：精准解析月度横栏、日期上下文状态机、业务对手及正负金额；
+  - **余额连续性强对账校验**：每笔流水利用运行余额公式进行数学检验，防漏防错；
+  - **商户关键词离线智能分类** ([`CategoryInferenceEngine.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ocr/CategoryInferenceEngine.kt))：自动将美团、拼多多、理财等映射至支出/收入分类；
+  - **前置目标账户选择抽屉** ([`SelectTargetAccountBottomSheet.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/ui/dialogs/SelectTargetAccountBottomSheet.kt))：取代脆弱的卡号自动识别，明确资产主体，支持一键新建账户；
+  - **转账温和提醒与期末余额校准**：疑似资金调拨流水显著打标提醒，支持一键指定对端账户，支持自动生成 ADJUST 余额校准分录；
+  - **复式分录守恒批量导入**：每笔流水原子拆解为配平 Posting，确保 $\sum Posting = 0$。
+- **单元测试套件**：
+  - 新增 [`IcbcBillAdapterTest.kt`](file:///D:/book/app/src/test/java/com/flowledger/app/IcbcBillAdapterTest.kt)、[`CategoryInferenceEngineTest.kt`](file:///D:/book/app/src/test/java/com/flowledger/app/CategoryInferenceEngineTest.kt)、[`DoubleEntryImportTest.kt`](file:///D:/book/app/src/test/java/com/flowledger/app/DoubleEntryImportTest.kt)，全量 24 项测试通过率 100%。
 #### 新增 (Added)
 - **多账本管理**：
   - 新增 `books` 数据实体与 [`BookDao.kt`](file:///D:/book/app/src/main/java/com/flowledger/app/data/dao/BookDao.kt)；

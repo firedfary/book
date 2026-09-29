@@ -13,6 +13,7 @@ import com.flowledger.app.data.model.AccountType
 import com.flowledger.app.data.model.AccountWithBalance
 import com.flowledger.app.data.model.BookEntity
 import com.flowledger.app.data.model.BookWithStats
+import com.flowledger.app.data.model.ImportedBillCandidate
 import com.flowledger.app.data.model.PostingEntity
 import com.flowledger.app.data.model.TransactionDisplayItem
 import com.flowledger.app.data.model.TransactionEntity
@@ -577,6 +578,233 @@ class LedgerRepository(
 
     suspend fun deleteTransaction(transactionId: String) {
         transactionDao.deleteTransaction(transactionId)
+    }
+
+    // 7. 智能截图流水批量导入与对账融入
+
+    /**
+     * 针对候选流水进行相近时间与金额的查重
+     */
+    suspend fun checkDuplicates(
+        targetAccountId: String,
+        candidates: List<ImportedBillCandidate>
+    ): List<ImportedBillCandidate> {
+        val targetBookId = _currentBookId.value
+        val twoMinutes = 2 * 60 * 1000L
+
+        return candidates.map { candidate ->
+            val startTime = candidate.occurredAt - twoMinutes
+            val endTime = candidate.occurredAt + twoMinutes
+            val existing = transactionDao.getTransactionsForAccountInTimeRange(
+                bookId = targetBookId,
+                accountId = targetAccountId,
+                startTime = startTime,
+                endTime = endTime
+            )
+            val isDup = existing.any { tx ->
+                tx.title == candidate.title || tx.title.contains(candidate.title) || candidate.title.contains(tx.title)
+            }
+            candidate.copy(
+                isDuplicate = isDup,
+                isSelected = if (isDup) false else candidate.isSelected
+            )
+        }
+    }
+
+    /**
+     * 将用户勾选的候选流水装配为严格平衡的复式分录并批量原子写入数据库
+     */
+    suspend fun importBillCandidates(
+        targetAccountId: String,
+        candidates: List<ImportedBillCandidate>
+    ): Result<Int> {
+        val selected = candidates.filter { it.isSelected && it.amount > 0 }
+        if (selected.isEmpty()) return Result.success(0)
+
+        val targetBookId = _currentBookId.value
+        val accountsInBook = accountDao.getAccountsByBook(targetBookId)
+        val defaultExpenseAccount = accountsInBook.firstOrNull { it.type == AccountType.EXPENSE }
+            ?: return Result.failure(IllegalStateException("当前账本缺少支出分类节点，请先初始化分类账户"))
+        val defaultIncomeAccount = accountsInBook.firstOrNull { it.type == AccountType.INCOME }
+            ?: return Result.failure(IllegalStateException("当前账本缺少收入分类节点，请先初始化分类账户"))
+        val defaultAssetAccount = accountsInBook.firstOrNull { it.type == AccountType.ASSET && it.id != targetAccountId }
+
+        val txEntities = mutableListOf<TransactionEntity>()
+        val postingEntities = mutableListOf<PostingEntity>()
+
+        for (item in selected) {
+            val txId = UUID.randomUUID().toString()
+            val tx = TransactionEntity(
+                id = txId,
+                bookId = targetBookId,
+                title = item.title,
+                occurredAt = item.occurredAt,
+                type = item.type,
+                memo = if (item.originalRawText.isNotBlank()) "截图导入: ${item.originalRawText}" else "截图导入"
+            )
+            txEntities.add(tx)
+
+            val itemPostings = mutableListOf<PostingEntity>()
+
+            when (item.type) {
+                TransactionType.EXPENSE -> {
+                    val expCatId = item.categoryAccountId ?: defaultExpenseAccount.id
+                    itemPostings.add(
+                        PostingEntity(
+                            transactionId = txId,
+                            accountId = targetAccountId,
+                            amount = -item.amount,
+                            memo = "支出扣款"
+                        )
+                    )
+                    itemPostings.add(
+                        PostingEntity(
+                            transactionId = txId,
+                            accountId = expCatId,
+                            amount = item.amount,
+                            memo = "计入支出"
+                        )
+                    )
+                }
+                TransactionType.INCOME -> {
+                    val incCatId = item.categoryAccountId ?: defaultIncomeAccount.id
+                    itemPostings.add(
+                        PostingEntity(
+                            transactionId = txId,
+                            accountId = incCatId,
+                            amount = -item.amount,
+                            memo = "收入来源"
+                        )
+                    )
+                    itemPostings.add(
+                        PostingEntity(
+                            transactionId = txId,
+                            accountId = targetAccountId,
+                            amount = item.amount,
+                            memo = "收入到账"
+                        )
+                    )
+                }
+                TransactionType.TRANSFER, TransactionType.REPAYMENT -> {
+                    val toAccId = item.transferToAccountId ?: defaultAssetAccount?.id ?: targetAccountId
+                    itemPostings.add(
+                        PostingEntity(
+                            transactionId = txId,
+                            accountId = targetAccountId,
+                            amount = -item.amount,
+                            memo = "转出"
+                        )
+                    )
+                    itemPostings.add(
+                        PostingEntity(
+                            transactionId = txId,
+                            accountId = toAccId,
+                            amount = item.amount,
+                            memo = "转入"
+                        )
+                    )
+                }
+                else -> {
+                    val expCatId = item.categoryAccountId ?: defaultExpenseAccount.id
+                    itemPostings.add(
+                        PostingEntity(
+                            transactionId = txId,
+                            accountId = targetAccountId,
+                            amount = -item.amount,
+                            memo = "支出扣款"
+                        )
+                    )
+                    itemPostings.add(
+                        PostingEntity(
+                            transactionId = txId,
+                            accountId = expCatId,
+                            amount = item.amount,
+                            memo = "计入支出"
+                        )
+                    )
+                }
+            }
+
+            verifyBalance(itemPostings)
+            postingEntities.addAll(itemPostings)
+        }
+
+        transactionDao.insertFullTransactionsBatch(txEntities, postingEntities)
+        return Result.success(selected.size)
+    }
+
+    /**
+     * 账户余额校准 (根据截图最新余额生成一笔校准分录)
+     */
+    suspend fun adjustAccountBalance(
+        targetAccountId: String,
+        targetBalance: Double,
+        reason: String = "截图对账期末校准"
+    ): Result<Unit> {
+        val current = accountDao.getAccountBalance(targetAccountId) ?: 0.0
+        val delta = targetBalance - current
+        if (kotlin.math.abs(delta) < 0.005) {
+            return Result.success(Unit) // 已经一致，无需校准
+        }
+
+        val targetBookId = _currentBookId.value
+        val txId = UUID.randomUUID().toString()
+        val tx = TransactionEntity(
+            id = txId,
+            bookId = targetBookId,
+            title = "余额校准",
+            occurredAt = System.currentTimeMillis(),
+            type = TransactionType.ADJUST,
+            memo = reason
+        )
+
+        val postings = mutableListOf<PostingEntity>()
+        if (delta > 0) {
+            // 需要增加余额: 从理财/收益分类流入资产
+            val incomeAcc = accountDao.getAccountsByBook(targetBookId).firstOrNull { it.type == AccountType.INCOME }
+                ?: return Result.failure(IllegalStateException("未找到收入分类节点"))
+            postings.add(
+                PostingEntity(
+                    transactionId = txId,
+                    accountId = incomeAcc.id,
+                    amount = -delta,
+                    memo = "校准来源"
+                )
+            )
+            postings.add(
+                PostingEntity(
+                    transactionId = txId,
+                    accountId = targetAccountId,
+                    amount = delta,
+                    memo = "余额调增"
+                )
+            )
+        } else {
+            // 需要减少余额: 从资产流出至支出分类
+            val expenseAcc = accountDao.getAccountsByBook(targetBookId).firstOrNull { it.type == AccountType.EXPENSE }
+                ?: return Result.failure(IllegalStateException("未找到支出分类节点"))
+            val outflow = -delta
+            postings.add(
+                PostingEntity(
+                    transactionId = txId,
+                    accountId = targetAccountId,
+                    amount = -outflow,
+                    memo = "余额调减"
+                )
+            )
+            postings.add(
+                PostingEntity(
+                    transactionId = txId,
+                    accountId = expenseAcc.id,
+                    amount = outflow,
+                    memo = "校准计损"
+                )
+            )
+        }
+
+        verifyBalance(postings)
+        transactionDao.insertFullTransaction(tx, postings)
+        return Result.success(Unit)
     }
 
     private fun verifyBalance(postings: List<PostingEntity>) {

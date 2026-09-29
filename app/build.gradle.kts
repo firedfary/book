@@ -66,6 +66,9 @@ dependencies {
     // JSON Serialization for Ledger Export & Import
     implementation("com.google.code.gson:gson:2.10.1")
 
+    // ML Kit Chinese OCR (Text Recognition v2)
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.0")
+
     // Unit Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
